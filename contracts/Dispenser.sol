@@ -80,10 +80,16 @@ contract Dispenser {
     }
 
     // 
-    function claim (uint _amount) public {
+    function claimFunds (uint _amount) public {
         require(msg.sender = this.beneficiary, 'Only Beneficiary addredss is allowed to claim founds' );
-        require(_amount =< this.getCurrentMonthUnclaimedFund(), 'You are trying to withdraw more than allowed this month');
-        
-        dispensedToken.transfers(
+        uint time = now;
+
+        (uint8 y, uint8 m) = this.getYearAndMonth(time);
+    //    assert (y>28 && m >12) emitir evento de finalización y liberar todos los fondos
+        require(_amount <= this.limits[y][m], 'You are trying to withdraw more than allowed this month');
+
+        dispensedToken.transfers(this.beneficiary, _amount);
+        this.limits[y][m] = this.limits[y][m] - _amount;
+
     }
 }
