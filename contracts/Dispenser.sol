@@ -37,7 +37,6 @@ contract Dispenser {
 
     function populateBySatoshiMonetaryPolicy(uint _startpoint, uint _initialamount) private {
         uint allowed = _initialamount;
-        
         uint period = 0;
         do {
             for (uint i = 0; i < 4; i++) {
@@ -45,7 +44,7 @@ contract Dispenser {
             }
             period ++;
             allowed = allowed/2;
-        } while (allowed>this.stopThresholdLimit);
+        } while (allowed>stopThresholdLimit);
     }
 
     // here the convertion is just to fit number of decimals defined Dispensed token
@@ -61,34 +60,36 @@ contract Dispenser {
 
     function getYearAndMonths (uint _time) private returns (uint year,uint month){
         // this is the number of years between two timestamps in seconds, assuming years have 160 days for simplification
-        uint yea = (((( _time - this.startTime ) / 60 ) / 60 ) / 24 ) / 360;
+        uint yea = (((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 360;
         // this is how many months
-        uint mon = (((( _time - this.startTime ) / 60 ) / 60 ) / 24 ) / 30;
+        uint mon = (((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 30;
         return (yea,mon);
     }
 
     //this function is being created just for cheking array state
     function getCurrentMonthUnclaimedFund() public {
         (uint y, uint m) = getYearAndMonths(now);
-        return this.limits[y][m];
+        return limits[y][m];
     }
 
     function getMonthUnclaimedFund(uint y, uint m) public returns (uint remining_funds) {
-        require (0 < m <= 12, 'month not allowed more than 12');
-        require (0 < y <= 28, 'year should not be more than 28');
-        return this.limits[y-1][m-1];
+        require (m <= 12, 'month not allowed more than 12');
+        require (0 < m, 'month not allowed more less than zero');
+        require (y <= 28, 'year should not be more than 28');
+        require (0 < y, 'year should not be more than 28');
+        return (limits[y-1][m-1]);
     }
 
     function claimFunds (uint _amount) public {
-        require(msg.sender = this.beneficiary, 'Only Beneficiary addredss is allowed to claim founds');
+        require(msg.sender == beneficiary, 'Only Beneficiary addredss is allowed to claim founds');
         uint time = now;
 
         (uint y, uint m) = getYearAndMonths(time);
     //    assert (y>28 && m >12) emitir evento de finalización y liberar todos los fondos
-        require(_amount <= this.limits[y][m], 'You are trying to withdraw more than allowed this month');
+        require(_amount <= limits[y][m], 'You are trying to withdraw more than allowed this month');
 
-        this.dispensedToken.transfers(this.beneficiary, _amount);
-        this.limits[y][m] = this.limits[y][m] - _amount;
+        dispensedToken.transfer(beneficiary, _amount);
+        limits[y][m] = limits[y][m] - _amount;
 
     }
 }
