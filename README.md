@@ -21,9 +21,9 @@ DispensedToken has a capp of 700000 DSP, DIspneser is going to be unlocking, at 
 
 Dispensing period ends at the begining of the first month of the year 29, from that point any attemp to claim funds from Beneficiary is going to tranfer all the amount to that address.
 
-## Designing desitions
-The initial implementation is not designed for flexibility regarding the unlocking schedule or token parametrization. The initial requirements for unlocking shcedule has been very precise, and as there is no requirements or previsibility for changing
-
+## Design decisions
+The initial implementation is not designed for flexibility regarding the unlocking schedule or token parametrization. The initial requirements for unlocking shcedule has been very precise. There are not requirements or previsibility for changing that schedule or the token or the beneficiary. This solutions is being deployed for demonstrations porpouses only. So if there is no reason to change in smart contract, by default there are allways security reasons to make it in inflexible. If something doesn't need to change, then is should be unchangable.
+Considering prevoisly described scenario, I desided to use a bidimentional array for keepeing track of all limits, month by month. This results in increasing gas cots during deployment, but it allows the Dispenser contract to easly know the limits available for every month (not just current, but previous and future months) in the entire Dispensing period and I consider that capability to be an improvment regarding auditability.
 
 ## Potential improvements:
 - Parametrizable token: Dispenser contraact could be Dispensed a predetermined amount of an existing token. For example for managing some amount of DAI (or any stablecoin) ... and releasing founds in a pre-determined schedule.
