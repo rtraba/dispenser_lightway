@@ -38,6 +38,7 @@ contract Dispenser {
 
     function populateBySatoshiMonetaryPolicy(unit _startpoint, unit _initialamount) private {
         uint allowed = _initialamount;
+        
         uint period = 0;
         do {
             for (uint i = 0; i < 4; i++) {
