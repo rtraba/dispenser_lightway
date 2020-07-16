@@ -58,7 +58,7 @@ contract Dispenser {
             }
     }
 
-    function getYearAndMonths (uint _time) private returns (uint year,uint month){
+    function getYearAndMonths (uint _time) private view returns (uint year,uint month){
         // this is the number of years between two timestamps in seconds, assuming years have 160 days for simplification
         uint yea = (((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 360;
         // this is how many months
@@ -67,12 +67,12 @@ contract Dispenser {
     }
 
     //this function is being created just for cheking array state
-    function getCurrentMonthUnclaimedFund() public {
+    function getCurrentMonthUnclaimedFund() public view returns (uint remainingAllowed){
         (uint y, uint m) = getYearAndMonths(now);
         return limits[y][m];
     }
 
-    function getMonthUnclaimedFund(uint y, uint m) public returns (uint remining_funds) {
+    function getMonthUnclaimedFund(uint y, uint m) public view returns (uint remining_funds) {
         require (m <= 12, 'month not allowed more than 12');
         require (0 < m, 'month not allowed more less than zero');
         require (y <= 28, 'year should not be more than 28');
