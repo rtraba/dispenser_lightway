@@ -5,8 +5,11 @@ pragma solidity ^0.6.0;
 
 import "./DispensedToken.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 contract Dispenser is Ownable{
+
+    using SafeMath for uint256;
     // deployment time, used for calculate current period and clims which limits to apply
     uint public startTime;
     // threshold after which there is no monetary policy and all founds are going to be released to beneficiary
@@ -59,29 +62,36 @@ contract Dispenser is Ownable{
         uint period = 0;
         do {
             for (uint i = 0; i < 4; i++) {
-                populateSingleYear((_startpoint)+period+i,allowed);
+                populateSingleYear((_startpoint.add(period)).add(i),allowed);
             }
-            period = period + 4;
-            allowed = allowed/2;
+            period = period.add(4);// + 4;
+            allowed = allowed.div(2);// /2;
         } while (allowed > stopThresholdLimit);
     }
 
     // here the convertion is just to fit number of decimals defined Dispensed token
     // the function asummes the argument received represents an integer amount of DSP
     function populateSingleYear (uint _yearorder, uint _limit) private {
-        uint limit = _limit * ( uint(10) ** dispensedToken.decimals() );
+        uint limit = _limit.mul((uint(10)) ** dispensedToken.decimals());
 
         for (uint i = 0; i < 12; i++) {
                 //index year in year-1 because the first year is represented in 0 index array
-                limits[(_yearorder-1)][i] = limit;
+                limits[_yearorder.sub(1)][i] = limit;
             }
     }
 
-    function getYearAndMonths (uint _time) private view returns (uint _year,uint _month){
-        // this is the number of years between two timestamps in seconds, assuming years have 160 days for simplification
-        uint yea = (((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 360;
+     /**
+     * returns how many years and months has been pased betweeen the startpoint and a given timesttamp
+     * uses SafeMath to avoid overflows
+     */
+    function getYearAndMonths (uint _time) public view returns (uint _year,uint _month){
+        // this is the number of years between two timestamps in seconds, assuming years have 360 days for simplification
+         //((((_time - startTime ) / 60 ) / 60 ) / 24 ) / 360;
+        uint yea = ((((_time.sub(startTime)).div(60)).div(60)).div(24)).div(360);
         // this is how many months
-        uint mon = (((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 30;
+        //((((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 30 ) - yea*12;
+        uint all_monts = ((((_time.sub(startTime)).div(60)).div(60)).div(24)).div(30);
+        uint mon = all_monts.sub(yea.mul(12));
         return (yea,mon);
     }
 
@@ -96,7 +106,7 @@ contract Dispenser is Ownable{
         require (0 < m, 'month not allowed more less than zero');
         require (y <= 28, 'year should not be more than 28');
         require (0 < y, 'year should not be more than 28');
-        return (limits[y-1][m-1]);
+        return (limits[y.sub(1)][m.sub(1)]);
     }
 
     function claimFunds (uint _amount) public notFinalized {
