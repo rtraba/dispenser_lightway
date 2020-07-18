@@ -2,27 +2,46 @@
 
 pragma solidity ^0.6.0;
 
-import './DispensedToken.sol';
 
+import "./DispensedToken.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Dispenser {
+contract Dispenser is Ownable{
     // deployment time, used for calculate current period and clims which limits to apply
     uint public startTime;
     // threshold after which there is no monetary policy and all founds are going to be released to beneficiary
     uint public stopThresholdLimit;
     // beneficiary addresss is the onlyone who can be receipt of transfers from this contract
-    address public beneficiary;
+    bool public finalized;
+    // beneficiaries are addresss that can claimfunds if they has been added by owner, accepted by themselves, and didn't renounce to be beneficiaries
+    mapping(address => Beneficiary) public beneficiaries;
+    struct Beneficiary {
+        bool isAdded;
+        bool isAccepted;
+    }
+
     // DispensedToken is an ERC20Capped token, which total supply is managed by this contract
     DispensedToken public dispensedToken;
     // Bidimentional array to store raimaing allowed withdrawals per months
-    uint[29][12] public limits;
+    uint[12][29] public limits;
+
+    // events
+    event beneficiaryInvited(address indexed invitedBeneficiary);
+    event beneficiaryRemoved(address indexed deletedBeneficiary);
+    event benficiaryRightsAccepted (address indexed newBeneficiary);
+    event benficiaryRightsRenounced (address indexed newBeneficiary);
+
+    event dispenserPeriodFinilized (uint reamainingAmount);
+    event fundsClaimed(uint amount);
 
     constructor() public{
-        beneficiary = msg.sender;
         dispensedToken = new DispensedToken();
         startTime = now;
         stopThresholdLimit = 100;
+        finalized = false;
         populateLimits();
+        addBeneficiary(msg.sender);
+        acceptBeneficiaryRights();
     }
 
     function populateLimits () private {
@@ -40,17 +59,17 @@ contract Dispenser {
         uint period = 0;
         do {
             for (uint i = 0; i < 4; i++) {
-                populateSingleYear((_startpoint-1)+period,allowed);
+                populateSingleYear((_startpoint)+period+i,allowed);
             }
-            period ++;
+            period = period + 4;
             allowed = allowed/2;
-        } while (allowed>stopThresholdLimit);
+        } while (allowed > stopThresholdLimit);
     }
 
     // here the convertion is just to fit number of decimals defined Dispensed token
-    // it could be an option
+    // the function asummes the argument received represents an integer amount of DSP
     function populateSingleYear (uint _yearorder, uint _limit) private {
-        uint limit = _limit * ( 10 ** 18 );
+        uint limit = _limit * ( uint(10) ** dispensedToken.decimals() );
 
         for (uint i = 0; i < 12; i++) {
                 //index year in year-1 because the first year is represented in 0 index array
@@ -58,7 +77,7 @@ contract Dispenser {
             }
     }
 
-    function getYearAndMonths (uint _time) private view returns (uint year,uint month){
+    function getYearAndMonths (uint _time) private view returns (uint _year,uint _month){
         // this is the number of years between two timestamps in seconds, assuming years have 160 days for simplification
         uint yea = (((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 360;
         // this is how many months
@@ -72,7 +91,7 @@ contract Dispenser {
         return limits[y][m];
     }
 
-    function getMonthUnclaimedFund(uint y, uint m) public view returns (uint remining_funds) {
+    function getMonthUnclaimedFund(uint y, uint m) public view returns (uint _remining_funds) {
         require (m <= 12, 'month not allowed more than 12');
         require (0 < m, 'month not allowed more less than zero');
         require (y <= 28, 'year should not be more than 28');
@@ -80,16 +99,77 @@ contract Dispenser {
         return (limits[y-1][m-1]);
     }
 
-    function claimFunds (uint _amount) public {
-        require(msg.sender == beneficiary, 'Only Beneficiary addredss is allowed to claim founds');
-        uint time = now;
-
-        (uint y, uint m) = getYearAndMonths(time);
+    function claimFunds (uint _amount) public notFinalized {
+        require(isAcceptedBeneficiary(msg.sender), 'Only accepted beneficiary addredss are allowed to claim founds');
+        (uint y, uint m) = getYearAndMonths(now);
     //    assert (y>28 && m >12) emitir evento de finalización y liberar todos los fondos
-        require(_amount <= limits[y][m], 'You are trying to withdraw more than allowed this month');
-
+        require(_amount <= limits[y][m], 'You are trying to withdraw more than remaining allowed this month');
+        address beneficiary = msg.sender;
         dispensedToken.transfer(beneficiary, _amount);
         limits[y][m] = limits[y][m] - _amount;
+        emit fundsClaimed(_amount);
 
     }
+
+    // When dispensed period os finilized all reamining funds in the contract will be transfered to the Owner of the contract.
+    function finalizeDispensedPeriod () public onlyOwner notFinalized {
+        uint remainingAmount = dispensedToken.balanceOf(address(this));
+        dispensedToken.transfer(owner(),remainingAmount);
+        finalized = true;
+        emit dispenserPeriodFinilized (remainingAmount);
+
+    }
+    modifier notFinalized() {
+        require(!finalized, "This contract is not dispensing any more, dispensed period has ended");
+        _;
+    }
+
+
+    /**
+     * only owner operations regarding beneficiaries: add and remove
+     */
+    function addBeneficiary (address _newBeneficiary) public onlyOwner returns (bool success){
+        require(_newBeneficiary != address(0), "Beneficiary can not be the zero address");
+        beneficiaries[_newBeneficiary].isAdded = true;
+        emit beneficiaryInvited(_newBeneficiary);
+        return true;
+    }
+    function removeBeneficiary (address _deletedBeneficiary) public onlyOwner returns (bool success){
+        require(_deletedBeneficiary != address(0), "Beneficiary can not be the zero address");
+        beneficiaries[_deletedBeneficiary].isAdded = false;
+        emit beneficiaryRemoved(_deletedBeneficiary);
+        return true;
+    }
+
+     /**
+     * Beneficiaries can accept or renounce their rigth to claim funds, just if they has been previusly added by owner
+     */
+    function acceptBeneficiaryRights () public returns (bool _success){
+        require( isAddedBeneficiary(msg.sender), "Only previously added beneficiaries can accept beneficiary rights");
+        beneficiaries[msg.sender].isAccepted = true;
+        emit benficiaryRightsAccepted(msg.sender);
+        return true;
+    }
+    function renounceBeneficiaryRights() public returns (bool _success) {
+        require(isAcceptedBeneficiary(msg.sender), 'Only an accepted beneficiaries can renounce beneficiary rights');
+        beneficiaries[msg.sender].isAccepted = false;
+        emit benficiaryRightsRenounced(msg.sender);
+        return true;
+    }
+
+    //  any addres can check if beneficiaries has been added by owner
+    function isAddedBeneficiary(address _beneficiary) public view returns (bool _isadded){
+        return beneficiaries[_beneficiary].isAdded;
+    }
+    function isAcceptedBeneficiary(address _beneficiary) public view returns (bool _isaccepted){
+        return (beneficiaries[_beneficiary].isAdded && beneficiaries[_beneficiary].isAccepted);
+    }
+    
+    // remove this before deploy, is just for testing 
+    function checkLimitsArrays ( uint _1, uint _2) public view returns (uint _value1)  {
+        return (limits[_1][_2]);
+    }
+
 }
+
+

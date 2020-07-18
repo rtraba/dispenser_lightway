@@ -1,0 +1,25 @@
+{
+  "manifestVersion": "2.2",
+  "contracts": {
+    "Dispenser": "Dispenser",
+    "DispensedToken": "DispensedToken"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts-ethereum-package": "^3.0.0"
+  },
+  "name": "dispenser",
+  "version": "1.0.0",
+  "telemetryOptIn": true,
+  "compiler": {
+    "manager": "openzeppelin",
+    "solcVersion": "0.6.11",
+    "compilerSettings": {
+      "optimizer": {
+        "enabled": false,
+        "runs": "200"
+      }
+    },
+    "artifactsDir": "build/contracts",
+    "contractsDir": "contracts"
+  }
+}

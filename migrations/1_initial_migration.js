@@ -1,7 +1,9 @@
 const Migrations = artifacts.require("Migrations");
 const Dispenser = artifacts.require("Dispenser");
+const DispensedToken = artifacts.require("DispensedToken")
 
 module.exports = function(deployer) {
   deployer.deploy(Migrations);
-  deplorer.deploy(Dispenser);
+  deployer.deploy(Dispenser);
 };
+

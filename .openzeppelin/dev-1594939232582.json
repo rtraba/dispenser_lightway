@@ -1,0 +1,21 @@
+{
+  "contracts": {},
+  "solidityLibs": {},
+  "proxies": {
+    "dispenser/DispensedToken": [
+      {
+        "address": "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab",
+        "kind": "NonProxy",
+        "bytecodeHash": "281e1e69de87ee5624f4d67442e5de24059ef63474bd5dec37b434cd7b6a15ec"
+      }
+    ],
+    "dispenser/Dispenser": [
+      {
+        "address": "0x5b1869D9A4C187F2EAa108f3062412ecf0526b24",
+        "kind": "NonProxy",
+        "bytecodeHash": "8ec277614ea7c8bbe48f482771ed3b1e4ad4d450911cca3452c3a2f397feee82"
+      }
+    ]
+  },
+  "manifestVersion": "2.2"
+}
