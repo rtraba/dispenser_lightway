@@ -44,7 +44,8 @@ contract Dispenser is Ownable{
     event benficiaryRightsAccepted (address indexed newBeneficiary);
     event benficiaryRightsRenounced (address indexed newBeneficiary);
 
-    event dispenserPeriodFinilized (uint reamainingAmount);
+    event dispenserPeriodFinilized (address beneficiary, uint reamainingAmount);
+    event dispenserPeriodFinilizedByOwner (uint remainingAmount);
     event fundsClaimed(uint amount);
 
     constructor(uint _dspCap, uint _stopThresholdLimit) public{
@@ -117,22 +118,25 @@ contract Dispenser is Ownable{
 
     function getMonthUnclaimedFund(uint y, uint m) public view returns (uint _remining_funds) {
         require (m <= 12, 'month not allowed more than 12');
-        require (0 < m, 'month not allowed more less than zero');
-        require (y <= 28, 'year should not be more than 28');
-        require (0 < y, 'year should not be more than 28');
+        require (0 <= m, 'month can not be negative');
+        require (y <= dispenserPeriodDuration, 'year out of dispensing period');
+        require (0 <= y, 'year can not be negative');
         return (limits[y.sub(1)][m.sub(1)]);
     }
 
     function claimFunds (uint _amount) public notFinalized {
         require(isAcceptedBeneficiary(msg.sender), 'Only accepted beneficiary addredss are allowed to claim founds');
         (uint y, uint m) = getYearAndMonths(now);
-    //    assert (y>28 && m >12) emitir evento de finalización y liberar todos los fondos
-        require(_amount <= limits[y][m], 'You are trying to withdraw more than remaining allowed this month');
+        if ( y >= dispenserPeriodDuration ){
+            finalize ();
+            return;
+        }
+        uint amount = _amount.mul((uint(10)) ** dispensedToken.decimals());
+        require(amount <= limits[y][m], 'You are trying to withdraw more than remaining allowed this month');
         address beneficiary = msg.sender;
-        dispensedToken.transfer(beneficiary, _amount);
-        limits[y][m] = limits[y][m].sub(_amount);// - _amount;
+        dispensedToken.transfer(beneficiary, amount);
+        limits[y][m] = limits[y][m].sub(amount);
         emit fundsClaimed(_amount);
-
     }
 
     // When dispensed period os finilized all reamining funds in the contract will be transfered to the Owner of the contract.
@@ -140,9 +144,21 @@ contract Dispenser is Ownable{
         uint remainingAmount = dispensedToken.balanceOf(address(this));
         dispensedToken.transfer(owner(),remainingAmount);
         finalized = true;
-        emit dispenserPeriodFinilized (remainingAmount);
-
+        emit dispenserPeriodFinilizedByOwner (remainingAmount);
     }
+    function finalize () private notFinalized {
+        uint remainingAmount = dispensedToken.balanceOf(address(this));
+        dispensedToken.transfer(msg.sender,remainingAmount);
+        finalized = true;
+        emit dispenserPeriodFinilized (msg.sender,remainingAmount);
+    }
+
+    function getLastMonthLimit () public view returns (uint _lastYear, uint _lastLimit) {
+        uint lastYear = limits.length;
+        uint lastLimit = limits[lastYear-1][11];
+        return (lastYear,lastLimit);
+    }
+
     modifier notFinalized() {
         require(!finalized, "This contract is not dispensing any more, dispensed period has ended");
         _;
