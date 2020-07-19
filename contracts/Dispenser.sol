@@ -174,12 +174,6 @@ contract Dispenser is Ownable{
     function isAcceptedBeneficiary(address _beneficiary) public view returns (bool _isaccepted){
         return (beneficiaries[_beneficiary].isAdded && beneficiaries[_beneficiary].isAccepted);
     }
-    
-    // remove this before deploy, is just for testing 
-    function checkLimitsArrays ( uint _1, uint _2) public view returns (uint _value1)  {
-        return (limits[_1][_2]);
-    }
-
 }
 
 
