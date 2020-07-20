@@ -187,6 +187,40 @@
         "implementation": "0x009aE9436Ef807f72cA45464b32B6B7721d210f9",
         "admin": "0x8dd321c028627e1c9AFC67cE78bC13AE37055ca3",
         "kind": "Upgradeable"
+      },
+      {
+        "address": "0xEAc57671e7FEAF53ABBE3dE255f7A331f490e92c",
+        "kind": "NonProxy",
+        "bytecodeHash": "1ea598a32f203f2a8386d1c724bd424f7a089a7d63f11300793892063c101437"
+      },
+      {
+        "address": "0x66F5DAf87f280f4Ea753f33D66231e596B1EF987",
+        "kind": "NonProxy",
+        "bytecodeHash": "263f9c5e4b900ee3e65b150df0132c95f5fd747196b63e26dd1d02cf2fdec343"
+      }
+    ],
+    "dispenser/Test": [
+      {
+        "address": "0x11DA7EbB9980cfD04A3E9CfF8178EaBf6dF059D5",
+        "kind": "NonProxy",
+        "bytecodeHash": "92922c4616f56948e680a9049505c188c125f27636cbf589755d4ce91b2420d8"
+      }
+    ],
+    "dispenser/DispensedToken": [
+      {
+        "address": "0x61ee2d4663065c349d30CfA82bE1aE364E56b36E",
+        "kind": "NonProxy",
+        "bytecodeHash": "6207450a4777d4d7c9458de51b5fd7079df6d3bb6053d2583c69a9ed612772ea"
+      },
+      {
+        "address": "0xBF0f70e1FD69EA3772416521C8fC24dE80d2D294",
+        "kind": "NonProxy",
+        "bytecodeHash": "6207450a4777d4d7c9458de51b5fd7079df6d3bb6053d2583c69a9ed612772ea"
+      },
+      {
+        "address": "0xD45089c23F0577B89FaD70D82dDFe75f9c3e051c",
+        "kind": "NonProxy",
+        "bytecodeHash": "6207450a4777d4d7c9458de51b5fd7079df6d3bb6053d2583c69a9ed612772ea"
       }
     ]
   },

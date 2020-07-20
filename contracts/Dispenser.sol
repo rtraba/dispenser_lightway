@@ -15,12 +15,8 @@ contract Dispenser is Ownable{
     uint public stopThresholdLimit;
     // beneficiary addresss is the onlyone who can be receipt of transfers from this contract
     bool public finalized;
-    // beneficiaries are addresss that can claimfunds if they has been added by owner, accepted by themselves, and didn't renounce to be beneficiaries
-    mapping(address => Beneficiary) public beneficiaries;
-    struct Beneficiary {
-        bool isAdded;
-        bool isAccepted;
-    }
+
+    address public beneficiary;
 
     // DispensedToken is an ERC20Capped token, which total supply is managed by this contract
     DispensedToken public dispensedToken;
@@ -39,23 +35,19 @@ contract Dispenser is Ownable{
     uint private allowanceAcumulator;
 
     // events
-    event beneficiaryInvited(address indexed invitedBeneficiary);
-    event beneficiaryRemoved(address indexed deletedBeneficiary);
-    event benficiaryRightsAccepted (address indexed newBeneficiary);
-    event benficiaryRightsRenounced (address indexed newBeneficiary);
 
     event dispenserPeriodFinilized (address beneficiary, uint reamainingAmount);
     event dispenserPeriodFinilizedByOwner (uint remainingAmount);
     event fundsClaimed(uint amount);
+    event newBeneficiary (address newBeneficiary);
 
-    constructor(uint _dspCap, uint _stopThresholdLimit) public{
-        dispensedToken = new DispensedToken(_dspCap);
+    constructor(DispensedToken _dsp, uint _stopThresholdLimit, address _beneficiary) public{
+        dispensedToken = _dsp;
         startTime = now;
         stopThresholdLimit = _stopThresholdLimit; // could be parametrized
         finalized = false;
         populateLimits();
-        addBeneficiary(msg.sender);
-        acceptBeneficiaryRights();
+        beneficiary = _beneficiary;
     }
 
     function populateLimits () private {
@@ -67,6 +59,7 @@ contract Dispenser is Ownable{
         // from year five we charge periods of 4 years dividin limits by 2on each period, like "bitcoin monetary policy"
         populateBySatoshiMonetaryPolicy(5000);
        // dispenserPeriodDuration = limits.length;
+       dispenserPeriodDuration = limits.length;
     }
 
     function populateBySatoshiMonetaryPolicy(uint _initialamount) private {
@@ -92,7 +85,6 @@ contract Dispenser is Ownable{
                 allowanceAcumulator = allowanceAcumulator.add(limit);
             }
         limits.push(months);
-        dispenserPeriodDuration = limits.length;
     }
 
      /**
@@ -125,7 +117,7 @@ contract Dispenser is Ownable{
     }
 
     function claimFunds (uint _amount) public notFinalized {
-        require(isAcceptedBeneficiary(msg.sender), 'Only accepted beneficiary addredss are allowed to claim founds');
+        require(beneficiary == msg.sender, 'Only accepted beneficiary addredss are allowed to claim founds');
         (uint y, uint m) = getYearAndMonths(now);
         if ( y >= dispenserPeriodDuration ){
             finalize ();
@@ -133,7 +125,6 @@ contract Dispenser is Ownable{
         }
         uint amount = _amount.mul((uint(10)) ** dispensedToken.decimals());
         require(amount <= limits[y][m], 'You are trying to withdraw more than remaining allowed this month');
-        address beneficiary = msg.sender;
         dispensedToken.transfer(beneficiary, amount);
         limits[y][m] = limits[y][m].sub(amount);
         emit fundsClaimed(_amount);
@@ -153,6 +144,12 @@ contract Dispenser is Ownable{
         emit dispenserPeriodFinilized (msg.sender,remainingAmount);
     }
 
+    function setBeneficiary (address _newBeneficiary) public onlyOwner {
+        require(_newBeneficiary != address(0), "Beneficiary can not be the zero address");
+        beneficiary = _newBeneficiary;
+        emit newBeneficiary(_newBeneficiary);
+    }
+
     function getLastMonthLimit () public view returns (uint _lastYear, uint _lastLimit) {
         uint lastYear = limits.length;
         uint lastLimit = limits[lastYear-1][11];
@@ -170,47 +167,6 @@ contract Dispenser is Ownable{
         _;
         require (allowanceAcumulator <= dispensedToken.cap(), 'Monetary Policy overflows');
     }
-
-    /**
-     * only owner operations regarding beneficiaries: add and remove
-     */
-    function addBeneficiary (address _newBeneficiary) public onlyOwner returns (bool success){
-        require(_newBeneficiary != address(0), "Beneficiary can not be the zero address");
-        beneficiaries[_newBeneficiary].isAdded = true;
-        emit beneficiaryInvited(_newBeneficiary);
-        return true;
-    }
-    function removeBeneficiary (address _deletedBeneficiary) public onlyOwner returns (bool success){
-        require(_deletedBeneficiary != address(0), "Beneficiary can not be the zero address");
-        beneficiaries[_deletedBeneficiary].isAdded = false;
-        emit beneficiaryRemoved(_deletedBeneficiary);
-        return true;
-    }
-
-     /**
-     * Beneficiaries can accept or renounce their rigth to claim funds, just if they has been previusly added by owner
-     */
-    function acceptBeneficiaryRights () public returns (bool _success){
-        require(isAddedBeneficiary(msg.sender), "Only previously added beneficiaries can accept beneficiary rights");
-        beneficiaries[msg.sender].isAccepted = true;
-        emit benficiaryRightsAccepted(msg.sender);
-        return true;
-    }
-    function renounceBeneficiaryRights() public returns (bool _success) {
-        require(isAcceptedBeneficiary(msg.sender), 'Only an accepted beneficiaries can renounce beneficiary rights');
-        beneficiaries[msg.sender].isAccepted = false;
-        emit benficiaryRightsRenounced(msg.sender);
-        return true;
-    }
-
-    //  any addres can check if beneficiaries has been added by owner
-    function isAddedBeneficiary(address _beneficiary) public view returns (bool _isadded){
-        return beneficiaries[_beneficiary].isAdded;
-    }
-    function isAcceptedBeneficiary(address _beneficiary) public view returns (bool _isaccepted){
-        return (beneficiaries[_beneficiary].isAdded && beneficiaries[_beneficiary].isAccepted);
-    }
-
 }
 
 
