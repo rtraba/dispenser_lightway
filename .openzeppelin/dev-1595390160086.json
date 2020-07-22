@@ -1,0 +1,34 @@
+{
+  "contracts": {},
+  "solidityLibs": {},
+  "proxies": {
+    "dispenser/Dispenser": [
+      {
+        "address": "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab",
+        "kind": "NonProxy",
+        "bytecodeHash": "5bf634860d51bd7e11fc1702fcbb37952ab9dede5d86161562b3dc3801c52a24"
+      },
+      {
+        "address": "0xCfEB869F69431e42cdB54A4F4f105C19C080A601",
+        "kind": "NonProxy",
+        "bytecodeHash": "43b0e170764c2e9d8b6422f7c1ad616874096fc43b65a0511a8bb690242794ca"
+      },
+      {
+        "address": "0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B",
+        "kind": "NonProxy",
+        "bytecodeHash": "74f138a1483c843b179edc053c9bcfcf00d88bd0289795cc5eb1c31a5f6d39d5"
+      },
+      {
+        "address": "0xD833215cBcc3f914bD1C9ece3EE7BF8B14f841bb",
+        "kind": "NonProxy",
+        "bytecodeHash": "d39ba9ccd579e19cc2bdcdfe30b6eb4ba18f972ead7540bac33ec9207a56d012"
+      },
+      {
+        "address": "0x9561C133DD8580860B6b7E504bC5Aa500f0f06a7",
+        "kind": "NonProxy",
+        "bytecodeHash": "eee22a7a89b66aea162caa1dc4f5584c9d2975a016f457b1bc2da6c78419bbd2"
+      }
+    ]
+  },
+  "manifestVersion": "2.2"
+}

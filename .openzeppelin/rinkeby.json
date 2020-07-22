@@ -197,6 +197,16 @@
         "address": "0x66F5DAf87f280f4Ea753f33D66231e596B1EF987",
         "kind": "NonProxy",
         "bytecodeHash": "263f9c5e4b900ee3e65b150df0132c95f5fd747196b63e26dd1d02cf2fdec343"
+      },
+      {
+        "address": "0x9D92197f4D6a614A54DAB2A10eF2B36d83f4df17",
+        "kind": "NonProxy",
+        "bytecodeHash": "abe305b4ab7fe104675b7256a714684977e6cb2bac44859d282626d1f44157b4"
+      },
+      {
+        "address": "0x038109B25645F106FB59ADB341C24B5ea9105fFd",
+        "kind": "NonProxy",
+        "bytecodeHash": "789d3f1fcfb9c35ac0b70772d0bf4eca55db98f493716fadbd98855ac82a5566"
       }
     ],
     "dispenser/Test": [

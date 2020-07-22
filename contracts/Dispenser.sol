@@ -13,159 +13,131 @@ contract Dispenser is Ownable{
     uint public startTime;
     // threshold after which there is no monetary policy and all founds are going to be released to beneficiary
     uint public stopThresholdLimit;
+    uint public maxMonthlyLimit;
     // beneficiary addresss is the onlyone who can be receipt of transfers from this contract
-    bool public finalized;
-
     address public beneficiary;
-
+    // finalized flag, deactivates climingfunds after finilized DIspensingPeriod
+    bool public finalized;
     // DispensedToken is an ERC20Capped token, which total supply is managed by this contract
     DispensedToken public dispensedToken;
-    // Bidimentional array to store raimaing allowed withdrawals per months
-    uint[12][] public limits;
-
-    // Dispenser period duration is calculated based in populateBySatoshiMonetaryPolicy and stopThresholdLimit
-    // represents how many years this contract is going to be available for claiming funds if no explicit finalization is trigered before by contract owner
-    // could be deprecated and replaced by limtis.length
-    uint public dispenserPeriodDuration;
-
-    // Allowance accumulator is used just for check Monetary Policy Consistency during Dispenser creation, meaning that it is used to ensure
-    // that DSP cap is bigger than acumulated limits availables for claiming during the entire dispensing period in the worst-case.
-    // If the stopThresholdLimit is too small and/or the period is to large, it could be the case in wich the contract still
-    // allows claiming funds but there are no balance available of DSP in Dispenser, even when it's still not finilazed.
-    uint private allowanceAcumulator;
+    // each time beneficiare claimFunds, it updates lastClaimTime and allowanceDeacumulator
+    uint public lastClaimTime;
+    uint public allowanceDeacumulator;
+    uint public lastLimit;
 
     // events
-
-    event dispenserPeriodFinilized (address beneficiary, uint reamainingAmount);
-    event dispenserPeriodFinilizedByOwner (uint remainingAmount);
+    event dispenserPeriodFinalized (address beneficiary, uint reamainingAmount);
+    event dispenserPeriodFinalizedByOwner (uint remainingAmount);
     event fundsClaimed(uint amount);
     event newBeneficiary (address newBeneficiary);
+    event allowanceDeacumulatorRestarted (uint currentTime);
+    event toMuchCalimingFunds (uint _amount);
 
-    constructor(DispensedToken _dsp, uint _stopThresholdLimit, address _beneficiary) public{
-        dispensedToken = _dsp;
+    constructor(uint _cap, uint _stopThresholdLimit, address _beneficiary, uint _maxMonthlyLimit) public{
+        dispensedToken = new DispensedToken(_cap);
         startTime = now;
-        stopThresholdLimit = _stopThresholdLimit; // could be parametrized
+        stopThresholdLimit = _stopThresholdLimit;
+        maxMonthlyLimit = _maxMonthlyLimit;
         finalized = false;
-        populateLimits();
+        lastClaimTime = startTime;
         beneficiary = _beneficiary;
+        allowanceDeacumulator = 0;
+        lastLimit = getMonthlyLimit(startTime);
     }
-
-    function populateLimits () private {
-        // months dinamic limits are just hardcoded, as it doesn't change in original problem domain.
-        populateSingleYear(1000);
-        populateSingleYear(2500);
-        populateSingleYear(5000);
-        populateSingleYear(10000);
-        // from year five we charge periods of 4 years dividin limits by 2on each period, like "bitcoin monetary policy"
-        populateBySatoshiMonetaryPolicy(5000);
-       // dispenserPeriodDuration = limits.length;
-       dispenserPeriodDuration = limits.length;
-    }
-
-    function populateBySatoshiMonetaryPolicy(uint _initialamount) private {
-        uint allowed = _initialamount;
-        do {
-            for (uint i = 0; i < 4; i++) {
-                populateSingleYear(allowed);
+    // caluclates years of 360 days to be consistent when calculating months of 30 days
+    function getMonthlyLimit(uint givenTime) public view returns (uint){
+        uint transcurredYears = ((((givenTime.sub(startTime)).div(60)).div(60)).div(24)).div(360);
+        uint period = transcurredYears.div(4);
+        uint monthLimit = maxMonthlyLimit;
+        if (period < 1) {
+            // here transcurreYears could be 0,1,2 or 3
+            if (transcurredYears < 2) {
+                if (transcurredYears  < 1) {
+                    monthLimit = maxMonthlyLimit.div(10);
+                }
+                else{
+                    monthLimit = maxMonthlyLimit.div(4);
+                }
             }
-            allowed = allowed.div(2);// /2;
-        } while (allowed > stopThresholdLimit);
-    }
-
-    // here the convertion is just to fit number of decimals defined Dispensed token
-    // the function asummes the argument received represents an integer amount of DSP
-    function populateSingleYear (uint _limit) private consistentMonetaryPolicy {
-        uint limit = _limit.mul((uint(10)) ** dispensedToken.decimals());
-        
-        uint[12] memory months;
-
-        for (uint i = 0; i < 12; i++) {
-                //index year in year-1 because the first year is represented in 0 index array
-                months[i] = limit;
-                allowanceAcumulator = allowanceAcumulator.add(limit);
+            else{
+                if (transcurredYears < 3){
+                    monthLimit = maxMonthlyLimit.div(2);
+                }
             }
-        limits.push(months);
+        }
+        else {
+            uint divideBy = 2 ** period;
+            monthLimit = monthLimit.div(divideBy);
+        }
+       return monthLimit;
     }
 
-     /**
-     * returns how many years and months has been pased betweeen the startpoint and a given timesttamp
-     * uses SafeMath to avoid overflows
-     */
-    function getYearAndMonths (uint _time) public view returns (uint _year,uint _month){
-        // this is the number of years between two timestamps in seconds, assuming years have 360 days for simplification
-         //((((_time - startTime ) / 60 ) / 60 ) / 24 ) / 360;
-        uint yea = ((((_time.sub(startTime)).div(60)).div(60)).div(24)).div(360);
-        // this is how many months
-        //((((( _time - startTime ) / 60 ) / 60 ) / 24 ) / 30 ) - yea*12;
-        uint all_monts = ((((_time.sub(startTime)).div(60)).div(60)).div(24)).div(30);
-        uint mon = all_monts.sub(yea.mul(12));
-        return (yea,mon);
+    // asume months of 30 days, consistent with years of 360 days
+     function getMonthsSinceStartTime (uint _givenTime) public view returns (uint) {
+        uint passedSeconds = (_givenTime.sub(startTime));
+        uint passedMonths = (((passedSeconds.div(60)).div(60)).div(24)).div(30);
+        return passedMonths;
     }
-
-    //this function is being created just for cheking array state
-    function getCurrentMonthUnclaimedFund() public view returns (uint remainingAllowed){
-        (uint y, uint m) = getYearAndMonths(now);
-        return limits[y][m];
+    //calculates how much remains to be claimed for current month, taking in account previous claimFunds performed this month
+    function getCurrentMonthUnclaimedFund() public view returns (uint){
+         uint nowTime = now;
+         uint currentLimit = getMonthlyLimit(nowTime);
+         if (isSameMonthThanLastClaim(nowTime)){
+            currentLimit = currentLimit.sub(allowanceDeacumulator);
+        }
+        return currentLimit;
     }
-
-    function getMonthUnclaimedFund(uint y, uint m) public view returns (uint _remining_funds) {
-        require (m <= 12, 'month not allowed more than 12');
-        require (0 <= m, 'month can not be negative');
-        require (y <= dispenserPeriodDuration, 'year out of dispensing period');
-        require (0 <= y, 'year can not be negative');
-        return (limits[y.sub(1)][m.sub(1)]);
-    }
-
+    // claimFunds assume than_amount is pased as interger, that's why it multiplies by 10 ** decimals after calling DSP transfer.
     function claimFunds (uint _amount) public notFinalized {
         require(beneficiary == msg.sender, 'Only accepted beneficiary addredss are allowed to claim founds');
-        (uint y, uint m) = getYearAndMonths(now);
-        if ( y >= dispenserPeriodDuration ){
-            finalize ();
+
+        // first check if allowanceDeacumulator needs to be restarted before using it
+        uint nowTime = now;
+        if (!isSameMonthThanLastClaim(nowTime)){
+            allowanceDeacumulator = 0;
+            lastLimit = getMonthlyLimit(nowTime);
+            emit allowanceDeacumulatorRestarted (nowTime);
+        }
+        // check if dispenser must be finilized
+        if (getMonthlyLimit(nowTime) <= stopThresholdLimit) {
+            finalize();
             return;
         }
-        uint amount = _amount.mul((uint(10)) ** dispensedToken.decimals());
-        require(amount <= limits[y][m], 'You are trying to withdraw more than remaining allowed this month');
-        dispensedToken.transfer(beneficiary, amount);
-        limits[y][m] = limits[y][m].sub(amount);
-        emit fundsClaimed(_amount);
-    }
+        // check that ammount under limits allowed limits alowed to be
+        require(_amount.add(allowanceDeacumulator) > lastLimit, 'out of limit');
 
-    // When dispensed period os finilized all reamining funds in the contract will be transfered to the Owner of the contract.
+        uint transferableAmount = _amount * ( uint(10) ** dispensedToken.decimals());
+        dispensedToken.transfer(beneficiary,transferableAmount);
+        allowanceDeacumulator += _amount;
+        lastClaimTime = nowTime;
+        emit fundsClaimed(transferableAmount);
+    }
+    // tells if current time is in the same monthly based range than the last claimFunds excuted
+    function isSameMonthThanLastClaim(uint _givenTime) public view returns (bool) {
+        return (getMonthsSinceStartTime(_givenTime) == getMonthsSinceStartTime(lastClaimTime) );
+    }
+    // When dispensed period is manually finilized all reamining funds in the contract will be transfered to the Owner of Dispenser.
     function finalizeDispensedPeriod () public onlyOwner notFinalized {
         uint remainingAmount = dispensedToken.balanceOf(address(this));
         dispensedToken.transfer(owner(),remainingAmount);
         finalized = true;
-        emit dispenserPeriodFinilizedByOwner (remainingAmount);
+        emit dispenserPeriodFinalizedByOwner (remainingAmount);
     }
+    // called when dispensed period is finalized by normal ending of dispensing period
     function finalize () private notFinalized {
         uint remainingAmount = dispensedToken.balanceOf(address(this));
         dispensedToken.transfer(msg.sender,remainingAmount);
         finalized = true;
-        emit dispenserPeriodFinilized (msg.sender,remainingAmount);
+        emit dispenserPeriodFinalized (msg.sender,remainingAmount);
     }
-
+    modifier notFinalized() {
+        require(!finalized,'This contract is not dispensing any more, dispensingPeriod has ended');
+        _;
+    }
     function setBeneficiary (address _newBeneficiary) public onlyOwner {
         require(_newBeneficiary != address(0), "Beneficiary can not be the zero address");
         beneficiary = _newBeneficiary;
         emit newBeneficiary(_newBeneficiary);
-    }
-
-    function getLastMonthLimit () public view returns (uint _lastYear, uint _lastLimit) {
-        uint lastYear = limits.length;
-        uint lastLimit = limits[lastYear-1][11];
-        return (lastYear,lastLimit);
-    }
-
-    modifier notFinalized() {
-        require(!finalized, "This contract is not dispensing any more, dispensed period has ended");
-        _;
-    }
-
-    // The acumulation of all funds available for claims MUST be less or equal than capped supply of DSP.
-    // The requirement is to have enought cap and balance of DSP to dispense after year dispenserPeriodDuration
-    modifier consistentMonetaryPolicy(){
-        _;
-        require (allowanceAcumulator <= dispensedToken.cap(), 'Monetary Policy overflows');
     }
 }
 
