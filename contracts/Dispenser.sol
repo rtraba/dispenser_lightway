@@ -31,7 +31,6 @@ contract Dispenser is Ownable{
     event fundsClaimed(uint amount);
     event newBeneficiary (address newBeneficiary);
     event allowanceDeacumulatorRestarted (uint currentTime);
-    event toMuchCalimingFunds (uint _amount);
 
     constructor(uint _cap, uint _stopThresholdLimit, address _beneficiary, uint _maxMonthlyLimit) public{
         dispensedToken = new DispensedToken(_cap);
@@ -72,13 +71,8 @@ contract Dispenser is Ownable{
        return monthLimit;
     }
 
-    // asume months of 30 days, consistent with years of 360 days
-     function getMonthsSinceStartTime (uint _givenTime) public view returns (uint) {
-        uint passedSeconds = (_givenTime.sub(startTime));
-        uint passedMonths = (((passedSeconds.div(60)).div(60)).div(24)).div(30);
-        return passedMonths;
-    }
     //calculates how much remains to be claimed for current month, taking in account previous claimFunds performed this month
+    // not used in contract, is just for testing
     function getCurrentMonthUnclaimedFund() public view returns (uint){
          uint nowTime = now;
          uint currentLimit = getMonthlyLimit(nowTime);
@@ -87,35 +81,51 @@ contract Dispenser is Ownable{
         }
         return currentLimit;
     }
-    // claimFunds assume than_amount is pased as interger, that's why it multiplies by 10 ** decimals after calling DSP transfer.
+
+    // asume months of 30 days, consistent with years of 360 days
+    function getMonthsSinceStartTime (uint _givenTime) public view returns (uint) {
+        uint passedSeconds = (_givenTime.sub(startTime));
+        uint passedMonths = (((passedSeconds.div(60)).div(60)).div(24)).div(30);
+        return passedMonths;
+    }
+
+     // tells if current time is in the same monthly based range than the last claimFunds excuted
+    function isSameMonthThanLastClaim(uint _givenTime) public view returns (bool) {
+        return (getMonthsSinceStartTime(_givenTime) == getMonthsSinceStartTime(lastClaimTime) );
+    }
+
+    // claimFunds assumes than_amount is pased as interger, that's why it multiplies by 10 ** decimals after calling DSP transfer.
     function claimFunds (uint _amount) public notFinalized {
         require(beneficiary == msg.sender, 'Only accepted beneficiary addredss are allowed to claim founds');
 
-        // first check if allowanceDeacumulator needs to be restarted before using it
         uint nowTime = now;
+        // check this is new month
         if (!isSameMonthThanLastClaim(nowTime)){
+        // new months impies reset deacumulator and currentlimit
             allowanceDeacumulator = 0;
             lastLimit = getMonthlyLimit(nowTime);
+            // check if dispenser must be finilized
+            if (lastLimit <= stopThresholdLimit) {
+                finalize();
+                return;
+            }
             emit allowanceDeacumulatorRestarted (nowTime);
         }
-        // check if dispenser must be finilized
-        if (getMonthlyLimit(nowTime) <= stopThresholdLimit) {
-            finalize();
-            return;
-        }
-        // check that ammount under limits allowed limits alowed to be
-        require(_amount.add(allowanceDeacumulator) > lastLimit, 'out of limit');
 
-        uint transferableAmount = _amount * ( uint(10) ** dispensedToken.decimals());
+        // check that ammount under limits allowed limits alowed to be
+        bool not_overflowed = true;
+        if (_amount.add(allowanceDeacumulator) > lastLimit){
+             not_overflowed = false;
+        }
+        require(not_overflowed, 'ClaimFunds out of limit');
+
+        uint transferableAmount = _amount.mul(uint(10) ** dispensedToken.decimals());
         dispensedToken.transfer(beneficiary,transferableAmount);
         allowanceDeacumulator += _amount;
         lastClaimTime = nowTime;
         emit fundsClaimed(transferableAmount);
     }
-    // tells if current time is in the same monthly based range than the last claimFunds excuted
-    function isSameMonthThanLastClaim(uint _givenTime) public view returns (bool) {
-        return (getMonthsSinceStartTime(_givenTime) == getMonthsSinceStartTime(lastClaimTime) );
-    }
+
     // When dispensed period is manually finilized all reamining funds in the contract will be transfered to the Owner of Dispenser.
     function finalizeDispensedPeriod () public onlyOwner notFinalized {
         uint remainingAmount = dispensedToken.balanceOf(address(this));
